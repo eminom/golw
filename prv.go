@@ -37,7 +37,7 @@ func mapToHeaderType(kind DataType) PrvType {
 
 func prvCreateHeader(isInstance bool, kind DataType, id uint16, dataLength int) []byte {
 
-	hdrBuff := prvCreateHeaderBuffer(id, dataLength)
+	ob := prvCreateHeaderBuffer(id, dataLength)
 	var hdrType PrvType
 	if isInstance {
 		hdrType = PrvTlvTypeResourceInstance
@@ -45,9 +45,44 @@ func prvCreateHeader(isInstance bool, kind DataType, id uint16, dataLength int) 
 		hdrType = mapToHeaderType(kind)
 	}
 
-	hdrBuff[0] |= byte(hdrType & PrvTlvTypeMask)
+	var offset int
 
-	//TODO:FIXME
+	ob[0] |= byte(hdrType & PrvTlvTypeMask)
+	if id > 0xFF {
+		ob[0] |= 0x20
+		ob[1] = byte((id >> 8) & 0xFF)
+		ob[2] = byte(id & 0xFF)
+		offset = 3
+
+	} else {
+		ob[1] = byte(id)
+		offset = 2
+	}
+
+	if dataLength <= 7 {
+		// 0000 0000 (00)
+		ob[0] += byte(dataLength)
+
+	} else if dataLength <= 0xFF {
+		// 0000 1000 (01)
+		ob[0] |= 0x08
+		ob[offset] = byte(dataLength)
+
+	} else if dataLength <= 0xFFFF {
+		// 0001 0000 (10)
+		ob[0] |= 0x10
+		ob[offset] = byte((dataLength >> 8) & 0xFF)
+		ob[offset+1] = byte(dataLength & 0xFF)
+
+	} else if dataLength <= 0xFFFFFF {
+		// 0001 1000 (11)
+		ob[0] |= 0x18
+		ob[offset] = byte((dataLength >> 16) & 0xFF)
+		ob[offset+1] = byte((dataLength >> 8) & 0xFF)
+		ob[offset+2] = byte(dataLength & 0xFF)
+
+	}
+
 	return nil
 }
 
@@ -61,10 +96,13 @@ func prvGetHeaderLength(id uint16, dataLength int) int {
 		length += 1
 	}
 	if dataLength > 0xFFFF {
+		// three bytes: 01-00-00 to ff-ff-ff
 		length += 3
 	} else if dataLength > 0xFF {
+		// two bytes: 01-00 to ff-ff
 		length += 2
 	} else if dataLength > 7 {
+		// one byte: 00-10 to ff
 		length += 1
 	}
 	return length
