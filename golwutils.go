@@ -23,3 +23,11 @@ func NewFloat(id int, val float64) DataItem {
 		raw:  val,
 	}
 }
+
+func NewArray(id int, arr []DataItem) DataItem {
+	return DataItem{
+		Type: TypeObjectInstance,
+		ID:   uint16(id),
+		raw:  arr,
+	}
+}

@@ -57,3 +57,31 @@ func TestLwm2mEnc2(t *testing.T) {
 	t.Logf("3: 0x%x", items[3].AsInteger())
 
 }
+
+func TestLwm2mEnc3(t *testing.T) {
+	inner := []DataItem{
+		NewString(0, "Manufacture-XB"),
+		NewString(1, "Model-XB"),
+		NewString(16, "Binding-U"),
+		NewInteger(0x2018, 0x20180624),
+		NewFloat(0x2019, math.Pi),
+	}
+
+	chunk, err := EncodeTlv(nil, []DataItem{
+		NewArray(20, inner),
+		NewString(18, "tail"),
+	})
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+
+	items, left := ParseTlv(chunk)
+	if left != 0 {
+		t.Fatalf("error parsing tlv: %v byte(s) left", left)
+	}
+
+	t.Logf("%v", items)
+
+	t.Logf("[0] %v", items[0])
+	t.Logf("%v", items[1].AsString())
+}
