@@ -4,12 +4,18 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"log"
 )
 
 var (
-	chunkError       = errors.New("marshalling error")
-	typeError        = errors.New("type error")
-	unknownTypeError = errors.New("unknown type error")
+	_ = log.Printf
+)
+
+var (
+	chunkError        = errors.New("marshalling error")
+	typeError         = errors.New("type error")
+	unknownTypeError  = errors.New("unknown type error")
+	decodeLengthError = errors.New("error length for decoding")
 )
 
 type DataType uint16
@@ -40,7 +46,7 @@ type ObjectLink struct {
 	ObjectInstanceID uint16
 }
 
-func TlvMarshalItems(uri *UriT, items []DataItem) ([]byte, error) {
+func EncodeTlv(uri *UriT, items []DataItem) ([]byte, error) {
 	if len(items) <= 0 {
 		return nil, nil
 	}
@@ -247,4 +253,132 @@ func (d *DataItem) ToBinary() ([]byte, error) {
 	default:
 		return nil, typeError
 	}
+}
+
+func (d *DataItem) AsString() string {
+	if d.Type != TypeOpaque {
+		panic(typeError)
+	}
+	return string(d.raw.([]byte))
+}
+
+func (d *DataItem) AsInteger() int64 {
+	if d.Type != TypeOpaque {
+		panic(typeError)
+	}
+	ib := d.raw.([]byte)
+	switch len(ib) {
+	case 1:
+		return int64(int8(ib[0]))
+	case 2:
+		// Pay attention please:
+		// must convert this way
+		// or the result will be very different.
+		return int64(int16(binary.BigEndian.Uint16(ib)))
+	case 4:
+		return int64(int32(binary.BigEndian.Uint32(ib)))
+	case 8:
+		return int64(binary.BigEndian.Uint64(ib))
+	default:
+		panic(typeError)
+	}
+}
+
+// Parse: always return an array.
+// and the bytes left unparsed.
+func ParseTlv(buffer []byte) ([]DataItem, int) {
+	totLen := len(buffer)
+	lenAcc := 0
+	var rv []DataItem
+	for {
+		un, len0, err := ParseOne(buffer)
+		if err != nil {
+			break
+		}
+		rv = append(rv, un)
+		buffer = buffer[len0:]
+		lenAcc += len0
+	}
+	return rv, totLen - lenAcc
+}
+
+func ParseOne(buffer []byte) (di DataItem, eatLen int, err error) {
+	err = decodeLengthError
+
+	if len(buffer) < 2 {
+		return
+	}
+
+	var oID uint16
+	offset := 2 // one byte head, one byte id
+
+	// 0xF0, the higher four bits
+	// 0bxx1x: 16 bit id
+	// 0bxx0x: 8  bit id
+	if 0x20 == buffer[0]&0x20 {
+		// 16 bit id, in big endian order.
+		if len(buffer) < 3 {
+			return
+		}
+		oID = (uint16(buffer[1]) << 8) + uint16(buffer[2])
+		offset += 1
+	} else {
+		// 8 bit id
+		oID = uint16(buffer[1])
+	}
+
+	oLen := 0
+	switch buffer[0] & 0x18 {
+	case 0x00:
+		// 0 bits length
+		oLen = int(buffer[0] & 0x07)
+
+	case 0x08:
+		// 8 bits length
+		if len(buffer) < offset+1 {
+			return
+		}
+		oLen = int(buffer[offset])
+		offset += 1
+
+	case 0x10:
+		// 16 bits length
+		if len(buffer) < offset+2 {
+			return
+		}
+		oLen = (int(buffer[offset]) << 8) + int(buffer[offset+1])
+		offset += 2
+
+	case 0x18:
+		// 24 bits length
+		if len(buffer) < offset+3 {
+			return
+		}
+		oLen = (int(buffer[offset]) << 16) + (int(buffer[offset+1]) << 8) + int(buffer[offset+2])
+		offset += 3
+
+	default:
+		// Not possible...
+		return
+	}
+
+	//
+	if len(buffer) < offset+oLen {
+		return
+	}
+
+	datatype := getDataType(uint8(buffer[0] & PrvTlvTypeMask))
+	di.Type = datatype
+	di.ID = oID
+
+	switch datatype {
+	case TypeObjectInstance, TypeMultipleResource:
+		di.raw, _ = ParseTlv(buffer[offset : offset+oLen])
+	default:
+		di.raw = buffer[offset : offset+oLen]
+		di.Type = TypeOpaque
+	}
+	err = nil
+	eatLen = offset + oLen
+	return
 }

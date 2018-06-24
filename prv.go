@@ -32,7 +32,32 @@ func mapToHeaderType(kind DataType) PrvType {
 	case TypeUndefined:
 		return PrvTlvTypeUnknown
 	}
-	//return PrvTlvTypeUnknown
+}
+
+// normally: Mask 0xC0
+func getDataType(kind uint8) DataType {
+	cat := PrvType(kind)
+	switch cat {
+	case PrvTlvTypeObject:
+		//0x10, which is not valid after masked
+		//somebody FIXME??
+		return TypeObject
+
+	case PrvTlvTypeObjectInstance:
+		//0x00
+		return TypeObjectInstance
+
+	case PrvTlvTypeMultipleResource:
+		//0x80
+		return TypeMultipleResource
+
+	case PrvTlvTypeResource, PrvTlvTypeResourceInstance:
+		//0xC0, 0x40
+		return TypeOpaque
+
+	default:
+		return TypeUndefined
+	}
 }
 
 func prvCreateHeader(isInstance bool, kind DataType, id uint16, dataLength int) []byte {
@@ -83,7 +108,7 @@ func prvCreateHeader(isInstance bool, kind DataType, id uint16, dataLength int) 
 
 	}
 
-	return nil
+	return ob
 }
 
 func prvCreateHeaderBuffer(id uint16, dataLength int) []byte {
