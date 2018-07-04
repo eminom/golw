@@ -29,10 +29,10 @@ func TestLwm2m(t *testing.T) {
 	}
 	t.Logf("%v", items)
 
-	t.Logf("0: %v", items[0].AsString())
-	t.Logf("1: %v", items[1].AsString())
-	t.Logf("2: %v", items[2].AsString())
-	t.Logf("3: 0x%x", items[3].AsInteger())
+	t.Logf("0:<id=%v> %v", items[0].ID, items[0].AsString())
+	t.Logf("1:<id=%v> %v", items[1].ID, items[1].AsString())
+	t.Logf("2:<id=%v> %v", items[2].ID, items[2].AsString())
+	t.Logf("3:<id=%v> 0x%x", items[3].ID, items[3].AsInteger())
 }
 
 func TestLwm2mEnc2(t *testing.T) {
