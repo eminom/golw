@@ -41,6 +41,21 @@ type DataItem struct {
 	raw  interface{}
 }
 
+// sort by ID
+type DataItemArray []DataItem
+
+func (arr DataItemArray) Len() int {
+	return len(arr)
+}
+
+func (arr DataItemArray) Less(i, j int) bool {
+	return arr[i].ID < arr[j].ID
+}
+
+func (arr DataItemArray) Swap(i, j int) {
+	arr[i], arr[j] = arr[j], arr[i]
+}
+
 type ObjectLink struct {
 	ObjectID         uint16
 	ObjectInstanceID uint16

@@ -2,8 +2,15 @@ package lwm2m
 
 import (
 	"math"
+	"math/rand"
+	"sort"
 	"testing"
+	"time"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 func getAttrs() []DataItem {
 	return []DataItem{
@@ -17,6 +24,20 @@ func getAttrs() []DataItem {
 
 func genChunk(uri *UriT) ([]byte, error) {
 	return EncodeTlv(uri, getAttrs())
+}
+
+func TestLwm2mSort(t *testing.T) {
+	var arr []DataItem
+	for i := 0; i < 300000; i++ {
+		arr = append(arr, NewString(rand.Intn(90000), "X"))
+	}
+	sort.Sort(DataItemArray(arr))
+	for i := 0; i < len(arr)-1; i++ {
+		if arr[i].ID > arr[i+1].ID {
+			t.Fatalf("error sorting")
+		}
+	}
+	t.Logf("sort tested one")
 }
 
 func TestLwm2mObjects(t *testing.T) {
