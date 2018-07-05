@@ -5,14 +5,44 @@ import (
 	"testing"
 )
 
-func genChunk(uri *UriT) ([]byte, error) {
-	return EncodeTlv(uri, []DataItem{
+func getAttrs() []DataItem {
+	return []DataItem{
 		NewString(0, "Manufacture-XB"),
 		NewString(1, "Model-XB"),
 		NewString(16, "Binding-U"),
 		NewInteger(0x2018, 0x20180624),
 		NewFloat(0x2019, math.Pi),
+	}
+}
+
+func genChunk(uri *UriT) ([]byte, error) {
+	return EncodeTlv(uri, getAttrs())
+}
+
+func TestLwm2mObjects(t *testing.T) {
+
+	chunk, err := EncodeTlv(nil, []DataItem{
+		NewArray(0, getAttrs()),
+		NewArray(1, getAttrs()),
+		NewArray(2, getAttrs()),
 	})
+	if err != nil {
+		t.Fatalf("error encode object array: %v", err)
+	}
+
+	items, left := ParseTlv(chunk)
+	if left != 0 {
+		t.Fatalf("error parsing: left %v", left)
+	}
+	for i, item := range items {
+		if item.Type != TypeObjectInstance {
+			t.Fatalf("error type: %v", item.Type)
+		}
+		t.Logf("<%v>", i)
+		for _, attr := range item.AsArray() {
+			t.Logf("  <%v> %v", attr.ID, attr)
+		}
+	}
 }
 
 func TestLwm2m(t *testing.T) {

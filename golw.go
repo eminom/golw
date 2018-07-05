@@ -262,6 +262,13 @@ func (d *DataItem) AsString() string {
 	return string(d.raw.([]byte))
 }
 
+func (d *DataItem) AsArray() []DataItem {
+	if d.Type != TypeObjectInstance {
+		panic(typeError)
+	}
+	return d.raw.([]DataItem)
+}
+
 func (d *DataItem) AsInteger() int64 {
 	if d.Type != TypeOpaque {
 		panic(typeError)
